@@ -1,0 +1,81 @@
+bash-5.3$ A2A_URL=http://localhost:18083/api/a2a/kagent/arc-doctor/ \
+PENDING_THRESHOLD_SECONDS=60 \
+CONTROLLER_NAMESPACE=arc-systems STATE_NAMESPACE=arc-systems \
+bash ./arc-watch.sh
+[2026-10-09T04:07:58Z] Detected 1 finding(s): ["arc-runners/linux-x64:runners"]
+[2026-10-09T04:07:59Z] Sending diagnosis request to http://localhost:18083/api/a2a/kagent/arc-doctor/
+===== ARC Doctor diagnosis =====
+The root cause is crystal clear. I have everything I need. Here is the complete diagnosis:
+
+---
+
+**Verdict:** The `linux-x64` NodePool CPU limit is set to `1` core — exactly equal to a single runner pod's request — so Karpenter refuses to provision any new node once that 1 vCPU is consumed.
+
+---
+
+**Scale set(s):**
+
+| Field | Value |
+|---|---|
+| Name / Namespace | `linux-x64` / `arc-runners` |
+| min / max runners | 0 / 10 |
+| Current / Pending / Failed | 1 / 1 / 0 |
+| Listener | `linux-x64-7dbc7bd6-listener` — `1/1 Running` ✅ |
+
+---
+
+**Root cause:** The Karpenter `NodePool/linux-x64` has `spec.limits.cpu: 1`. Each runner pod requests **1 CPU**. As soon as one runner node is provisioned (consuming that single vCPU quota), Karpenter will not create any further NodeClaims for subsequent pods. This is a **NodePool resource ceiling**, not an AWS capacity or scheduling misconfiguration. The NodePool limit acts as a hard cap on total CPU across all nodes managed by that pool.
+
+The previous runner `linux-x64-runner-24pbp` consumed the 1 vCPU limit entirely. When the current runner `linux-x64-runner-q7kcm` arrived, Karpenter evaluated all available instance types and rejected them all because provisioning any one of them (even a `c6i.large` with 2 vCPUs) would push the pool over its 1-vCPU ceiling.
+
+---
+
+**Evidence:**
+
+- **`NodePool/linux-x64` spec** → `Limits: Cpu: 1` — the entire pool is capped at 1 vCPU total across all nodes.
+- **`NodePool/linux-x64` status** → `NODES: 0, CPU: 0` (current pod is still Pending, prior node has already been reclaimed), yet the limit was hit at pod scheduling time.
+- **Event on `linux-x64-runner-q7kcm`** (source: `karpenter`) → `"Failed to schedule pod, all available instance types exceed limits for nodepool (NodePool=linux-x64)"` — Karpenter explicitly reports the limit breach.
+- **Event on `linux-x64-runner-q7kcm`** (source: `default-scheduler`) → `"0/5 nodes are available: 5 node(s) didn't match Pod's node affinity/selector"` — no existing node carries the `arc-runners=true:NoSchedule` taint, so the scheduler cannot place it on any pre-existing node either.
+- **Runner pod requests** (from pod describe) → `cpu: 1` request, `memory: 2Gi` — a single runner exactly saturates the 1-vCPU limit, leaving zero headroom for concurrency.
+
+---
+
+**Fix:**
+
+The `NodePool` limit must be raised to accommodate your desired runner concurrency. Since `maxRunners: 10` and each runner requests `1 CPU`, the minimum sensible limit is **10 CPU** (or more, to account for node overhead):
+
+```bash
+# Option 1 – patch in-place (non-disruptive, takes effect immediately)
+kubectl patch nodepool linux-x64 --type='merge' -p '{"spec":{"limits":{"cpu":"20"}}}'
+
+# Option 2 – edit directly
+kubectl edit nodepool linux-x64
+# Change:
+#   spec:
+#     limits:
+#       cpu: 1        ← WRONG: only 1 vCPU for the entire pool
+# To:
+#   spec:
+#     limits:
+#       cpu: "20"     ← allows up to 10 x c/m-series large+ runners + overhead
+```
+
+If you also want to cap memory proportionally (2Gi per runner × 10 = 20Gi + node overhead):
+
+```yaml
+spec:
+  limits:
+    cpu: "20"
+    memory: 40Gi
+```
+
+> ⚠️ **No disruption** to running workloads — changing a NodePool limit is non-destructive. Karpenter will immediately re-evaluate the pending pod and provision a node for it.
+
+After the patch, Karpenter should nominate a new NodeClaim within seconds and the runner pod should be scheduled and Running within ~90 seconds (node bootstrap time).
+
+---
+
+**Confidence:** 🟢 **High** — the Karpenter event `"all available instance types exceed limits for nodepool (NodePool=linux-x64)"` directly and unambiguously names the cause, and the NodePool spec `cpu: 1` vs. runner request `cpu: 1` leaves no ambiguity. No further evidence needed.
+================================
+[2026-10-09T04:08:27Z] Diagnosis complete for 1 finding(s).
+bash-5.3$ 

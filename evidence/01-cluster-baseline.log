@@ -1,0 +1,10 @@
+# Cluster baseline before any install (2026-10-08)
+bash-5.3$ kubectl get ns
+NAME                STATUS   AGE
+amazon-cloudwatch   Active   18d
+default             Active   18d
+kube-node-lease     Active   18d
+kube-public         Active   18d
+kube-system         Active   18d
+radar               Active   8d
+bash-5.3$

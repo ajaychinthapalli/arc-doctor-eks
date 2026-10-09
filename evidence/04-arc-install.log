@@ -1,0 +1,69 @@
+# ARC gha-runner-scale-set 0.15.0 install (2026-10-08 20:06-20:16 MST)
+# Includes the first attempt that failed with 404: githubConfigUrl pointed at a
+# personal account as if it were an org. Fixed by switching to a repo URL.
+bash-5.3$ helm install arc --namespace arc-systems --create-namespace \
+  oci://ghcr.io/actions/actions-runner-controller-charts/gha-runner-scale-set-controller
+Pulled: ghcr.io/actions/actions-runner-controller-charts/gha-runner-scale-set-controller:0.15.0
+Digest: sha256:20a369215b8c2ed981c4c0c75e56e6009564d51fffcbbd314d5da0ef82de253a
+NAME: arc
+LAST DEPLOYED: Thu Oct  8 20:06:47 2026
+NAMESPACE: arc-systems
+STATUS: deployed
+REVISION: 1
+DESCRIPTION: Install complete
+TEST SUITE: None
+bash-5.3$
+bash-5.3$ kubectl create namespace arc-runners
+namespace/arc-runners created
+bash-5.3$ read -s -p "GitHub PAT: " GH_PAT; echo
+GitHub PAT:
+bash-5.3$ kubectl -n arc-runners create secret generic arc-github-app \
+  --from-literal=github_token="$GH_PAT"
+secret/arc-github-app created
+bash-5.3$ unset GH_PAT
+bash-5.3$ helm install linux-x64 -n arc-runners -f linux-x64-values.yaml   oci://ghcr.io/actions/actions-runner-controller-charts/gha-runner-scale-set
+Pulled: ghcr.io/actions/actions-runner-controller-charts/gha-runner-scale-set:0.15.0
+Digest: sha256:bdfdad17cf8e45ae064c73ed6764f0c75d4bf71a6e2912e6363a43d6dfc787de
+NAME: linux-x64
+LAST DEPLOYED: Thu Oct  8 20:08:36 2026
+NAMESPACE: arc-runners
+STATUS: deployed
+REVISION: 1
+DESCRIPTION: Install complete
+TEST SUITE: None
+bash-5.3$
+bash-5.3$ kubectl get pods -n arc-systems
+NAME                                     READY   STATUS    RESTARTS   AGE
+arc-gha-rs-controller-8495bc96dc-hp4sv   1/1     Running   0          118s
+bash-5.3$ kubectl get autoscalingrunnersets -A
+NAMESPACE     NAME        MINIMUM RUNNERS   MAXIMUM RUNNERS   PHASE
+arc-runners   linux-x64   0                 10                Pending
+bash-5.3$
+bash-5.3$ kubectl -n arc-runners describe autoscalingrunnerset linux-x64 | sed -n '/Status:/,$p'
+Status:
+  Phase:  Pending
+Events:   <none>
+bash-5.3$ kubectl -n arc-systems logs deploy/arc-gha-rs-controller --tail=40 | grep -iE 'error|fail|401|403|404' || echo "no errors in controller log"
+# (1 of 3 identical errors shown)
+2026-10-09T03:11:23Z ERROR AutoscalingRunnerSet Failed to get runner scale set from Actions service {"version": "0.15.0", "autoscalingrunnerset": {"name":"linux-x64","namespace":"arc-runners"}, "runnerGroupId": "1", "runnerScaleSetName": "linux-x64", "error": "failed to create new actions service request: failed to issue update token if needed: failed to get runner registration token on refresh: not found: request POST https://api.github.com/orgs/ajaychinthapalli/actions/runners/registration-token failed(status=\"404 Not Found\", github_request_id=\"4F44:126B9E:26BC18:7F9E4F:6AC85B5A\"): failed to get runner registration token (404 Not Found): : Not Found"}
+bash-5.3$
+# FIX: githubConfigUrl changed from https://github.com/<user> (personal account, no org runners)
+#      to https://github.com/<user>/<repo> (repo-level runners)
+bash-5.3$ helm upgrade linux-x64 -n arc-runners -f linux-x64-values.yaml \
+  oci://ghcr.io/actions/actions-runner-controller-charts/gha-runner-scale-set
+Release "linux-x64" has been upgraded. Happy Helming!
+NAME: linux-x64
+LAST DEPLOYED: Thu Oct  8 20:15:32 2026
+NAMESPACE: arc-runners
+STATUS: deployed
+REVISION: 2
+DESCRIPTION: Upgrade complete
+bash-5.3$ sleep 30
+bash-5.3$ kubectl get pods -n arc-systems
+NAME                                     READY   STATUS    RESTARTS   AGE
+arc-gha-rs-controller-8495bc96dc-hp4sv   1/1     Running   0          9m31s
+linux-x64-7dbc7bd6-listener              1/1     Running   0          44s
+bash-5.3$ kubectl get autoscalingrunnersets -A
+NAMESPACE     NAME        MINIMUM RUNNERS   MAXIMUM RUNNERS   PHASE
+arc-runners   linux-x64   0                 10                Running
+bash-5.3$

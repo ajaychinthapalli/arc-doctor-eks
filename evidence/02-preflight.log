@@ -1,0 +1,64 @@
+# Pre-flight: tools, cluster, OIDC, autoscaling, capacity, Bedrock model access (2026-10-08)
+bash-5.3$ helm version --short
+v4.2.4+g3900f43
+bash-5.3$ kubectl version 2>/dev/null | grep Server
+Server Version: v1.36.4-eks-cfb47f5
+bash-5.3$ eksctl version
+0.230.0
+bash-5.3$
+bash-5.3$ kubectl config current-context
+arn:aws:eks:us-east-2:111122223333:cluster/ac-ws-dev-use2
+bash-5.3$ aws eks describe-cluster --name ac-ws-dev-use2 --query 'cluster.identity.oidc.issuer' --output text
+https://oidc.eks.us-east-2.amazonaws.com/id/EXAMPLED539D4633E53DE1B71EXAMPLE
+bash-5.3$
+bash-5.3$ kubectl get deploy -A | grep -i karpenter
+bash-5.3$
+bash-5.3$ kubectl get nodepools 2>/dev/null
+bash-5.3$
+bash-5.3$ kubectl get nodes -L node.kubernetes.io/instance-type,karpenter.sh/nodepool
+NAME                                            STATUS   ROLES    AGE    VERSION               INSTANCE-TYPE   NODEPOOL
+ip-10-0-0-10.us-east-2.compute.internal    Ready    <none>   18d    v1.36.4-eks-a887778   t3.small
+ip-10-0-0-11.us-east-2.compute.internal   Ready    <none>   4d5h   v1.36.4-eks-3b4a6ca   t3.large
+ip-10-0-0-12.us-east-2.compute.internal   Ready    <none>   18d    v1.36.4-eks-a887778   t3.small
+ip-10-0-0-13.us-east-2.compute.internal    Ready    <none>   18d    v1.36.4-eks-a887778   t3.small
+ip-10-0-0-14.us-east-2.compute.internal    Ready    <none>   4d5h   v1.36.4-eks-3b4a6ca   t3.large
+bash-5.3$
+bash-5.3$ aws iam list-open-id-connect-providers | grep EXAMPLED539D4633E53DE1B71EXAMPLE
+bash-5.3$                                   # (empty: IAM OIDC provider not registered yet)
+bash-5.3$ kubectl get deploy -A | grep -i -E 'autoscaler|karpenter'
+bash-5.3$                                   # (empty: no node autoscaler)
+bash-5.3$ eksctl get nodegroup --cluster ac-ws-dev-use2 -o table
+CLUSTER NODEGROUP STATUS CREATED MIN SIZE MAX SIZE DESIRED CAPACITY INSTANCE TYPE IMAGE ID ASG NAME TYPE
+ac-ws-dev-use2 agents ACTIVE 2026-10-04T21:34:21Z 2 4 2 t3.large AL2023_x86_64_STANDARD eks-agents-00000000-0000-0000-0000-000000000000 managed
+bash-5.3$
+bash-5.3$ kubectl get pods -A -o wide --no-headers | awk '{print $8}' | sort | uniq -c
+   1 4d5h
+   8 ip-10-0-0-10.us-east-2.compute.internal
+   7 ip-10-0-0-11.us-east-2.compute.internal
+   7 ip-10-0-0-12.us-east-2.compute.internal
+   8 ip-10-0-0-13.us-east-2.compute.internal
+   7 ip-10-0-0-14.us-east-2.compute.internal
+bash-5.3$
+bash-5.3$ kubectl describe nodes | grep -A6 "Allocated resources" | grep -E "cpu|memory"
+  cpu                740m (38%)   3 (155%)
+  memory             745Mi (51%)  3418Mi (238%)
+  cpu                580m (30%)  1 (51%)
+  memory             321Mi (4%)  1082Mi (15%)
+  cpu                580m (30%)  1 (51%)
+  memory             327Mi (22%)  1252Mi (87%)
+  cpu                640m (33%)  1 (51%)
+  memory             559Mi (38%)  2564Mi (178%)
+  cpu                480m (24%)  1 (51%)
+  memory             257Mi (3%)  1082Mi (15%)
+bash-5.3$
+bash-5.3$ aws bedrock list-inference-profiles --region us-east-2 \
+  --query "inferenceProfileSummaries[?contains(inferenceProfileId,'claude-sonnet-4')].inferenceProfileId"
+[
+    "global.anthropic.claude-sonnet-4-5-20250929-v1:0",
+    "us.anthropic.claude-sonnet-4-5-20250929-v1:0",
+    "us.anthropic.claude-sonnet-4-20250514-v1:0",
+    "global.anthropic.claude-sonnet-4-20250514-v1:0",
+    "global.anthropic.claude-sonnet-4-6",
+    "us.anthropic.claude-sonnet-4-6"
+]
+bash-5.3$

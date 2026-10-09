@@ -1,0 +1,14 @@
+# Failure drill setup: cap the runner NodePool below the smallest allowed node (2026-10-08 ~21:05 MST)
+# limits.cpu=1 < 2 vCPU (smallest "large" instance), so Karpenter refuses every launch.
+bash-5.3$ kubectl patch nodepool linux-x64 --type merge -p '{"spec":{"limits":{"cpu":"1"}}}'
+nodepool.karpenter.sh/linux-x64 patched
+bash-5.3$ kubectl get pods -n arc-runners -w
+NAME                     READY   STATUS    RESTARTS   AGE
+linux-x64-runner-q7kcm   0/1     Pending   0          0s
+linux-x64-runner-q7kcm   0/1     Pending   0          1s
+^Z
+bash-5.3$ kubectl get nodeclaims
+No resources found
+bash-5.3$
+# Note: an earlier attempt ran the watcher before any job was queued and correctly
+# reported "All ARC scale sets healthy." (nothing was stuck yet).

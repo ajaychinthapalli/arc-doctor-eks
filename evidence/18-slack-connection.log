@@ -1,0 +1,24 @@
+# Slack incoming webhook connected and secret stored (2026-10-08 ~21:18 MST)
+# The webhook URL was entered with read -s and never echoed.
+bash-5.3$ read -s -p "Slack webhook URL: " SLACK_URL; echo
+Slack webhook URL:
+bash-5.3$ curl -s -X POST -H 'Content-Type: application/json' \
+  -d '{"text":":wave: ARC Doctor is connected"}' "$SLACK_URL"; echo
+ok
+bash-5.3$ kubectl -n arc-systems create secret generic arc-doctor-slack --from-literal=webhook-url="$SLACK_URL"
+secret/arc-doctor-slack created
+bash-5.3$ unset SLACK_URL
+bash-5.3$ kubectl apply -k .
+serviceaccount/arc-watcher unchanged
+role.rbac.authorization.k8s.io/arc-watcher-state unchanged
+clusterrole.rbac.authorization.k8s.io/arc-doctor-readonly unchanged
+clusterrole.rbac.authorization.k8s.io/arc-watcher unchanged
+rolebinding.rbac.authorization.k8s.io/arc-watcher-state unchanged
+clusterrolebinding.rbac.authorization.k8s.io/arc-doctor-readonly unchanged
+clusterrolebinding.rbac.authorization.k8s.io/arc-watcher unchanged
+configmap/arc-watcher-script-8g4f9h449b created
+cronjob.batch/arc-watcher configured
+agent.kagent.dev/arc-doctor configured
+modelconfig.kagent.dev/arc-doctor-bedrock unchanged
+bash-5.3$
+# Result in #arc-alerts: see docs/images/slack-diagnosis.png

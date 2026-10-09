@@ -1,0 +1,12 @@
+# First on-demand diagnosis over A2A message/send, healthy cluster (2026-10-08 ~20:55 MST)
+# Flows 7-13: request -> agent -> Bedrock (Sonnet 4.6) -> read-only tools -> answer.
+# Only the first 800 bytes of the response were captured in the terminal.
+bash-5.3$ curl -s -m 300 localhost:18083/api/a2a/kagent/arc-doctor/ -H 'Content-Type: application/json' -d '{
+  "jsonrpc":"2.0","id":"1","method":"message/send",
+  "params":{"message":{"role":"user","messageId":"m1","kind":"message",
+    "parts":[{"kind":"text","text":"Check ARC scale set linux-x64 in namespace arc-runners and the Karpenter NodePool linux-x64. Are runners able to start? Report status, limits and current capacity."}]}}}' \
+  -o /tmp/a2a.json
+bash-5.3$ head -c 800 /tmp/a2a.json; echo
+
+{"jsonrpc":"2.0","id":"1","result":{"kind":"task","id":"01a11ecc-469f-76d1-8588-563c182fdd69","artifacts":[{"artifactId":"01a11ecc-f23c-7334-809e-c7133e137dc2","parts":[{"kind":"text","text":"I now have the complete picture across all layers. Here is the full report:\n\n---\n\n## ARC Doctor — Diagnosis Report\n\n**Verdict:** The scale set `linux-x64` is **healthy and fully operational** — it successfully ran a job, completed it, and is now correctly idle at 0 runners waiting for the next queued job.\n\n---\n\n### Scale Set Summary\n\n| Field | Value |\n|---|---|\n| **Name / Namespace** | `linux-x64` / `arc-runners` |\n| **Min / Max Runners** | 0 / 10 |\n| **Current Runners** | 0 (idle — no queued jobs) |\n| **Pending / Failed** | 0 / 0 |\n| **ARS Phase** | `Running` ✅ |\n| **Epheme
+bash-5.3$
