@@ -1,0 +1,68 @@
+bash-5.3$ 
+bash-5.3$ helm show values oci://ghcr.io/kagent-dev/kagent/helm/kagent --version 0.10.3 \
+  | grep -n -E '^[a-z-]*agent[a-z-]*:|^agents:|^  [a-z-]*agent[a-z-]*:|enabled:' | head -40
+17:  enabled: false
+108:      enabled: true
+314:    enabled: false
+361:  # equivalent to `enabled: false` — to keep faith with the controller
+365:    enabled: false
+378:    enabled: false
+393:    # Example when enabled:
+394:    #   enabled: true
+557:    enabled: false
+603:    enabled: true
+618:    enabled: false
+709:  enabled: true
+719:  enabled: false
+725:kagent-tools:
+726:  enabled: true
+774:  enabled: true
+777:    enabled: false
+786:kgateway-agent:
+787:  enabled: true
+790:    enabled: false
+799:istio-agent:
+800:  enabled: true
+803:    enabled: false
+812:promql-agent:
+813:  enabled: true
+816:    enabled: false
+825:observability-agent:
+826:  enabled: true
+829:    enabled: false
+838:argo-rollouts-agent:
+839:  enabled: true
+842:    enabled: false
+851:helm-agent:
+852:  enabled: true
+855:    enabled: false
+864:cilium-policy-agent:
+865:  enabled: true
+868:    enabled: false
+877:cilium-manager-agent:
+878:  enabled: true
+bash-5.3$ 
+bash-5.3$ kubectl -n kagent get pods
+NAME                                              READY   STATUS    RESTARTS       AGE
+argo-rollouts-conversion-agent-7b8f697b4d-lp8kj   1/1     Running   0              85s
+cilium-debug-agent-8586b8c89b-7d8cs               1/1     Running   0              84s
+cilium-manager-agent-5bfb4f8687-5cqz5             1/1     Running   0              85s
+cilium-policy-agent-b4f558dc8-d6kx2               1/1     Running   0              84s
+helm-agent-6b8996d4b7-d4cpf                       1/1     Running   0              84s
+istio-agent-5b8f89849b-j9pdq                      1/1     Running   0              85s
+k8s-agent-594f4456b5-dxdxr                        1/1     Running   0              84s
+kagent-controller-c756c574c-fkq7j                 1/1     Running   3 (107s ago)   2m3s
+kagent-kmcp-controller-manager-76bb479b6-kc9lh    1/1     Running   0              2m3s
+kagent-postgresql-76d7c858f4-mfj67                1/1     Running   0              2m3s
+kagent-tools-b558b665b-lcwd6                      1/1     Running   0              2m3s
+kagent-ui-86df779686-z5pwb                        1/1     Running   0              2m3s
+kgateway-agent-547ff8b685-kfbdh                   1/1     Running   0              84s
+promql-agent-77b88dfbd8-7snhp                     1/1     Running   0              84s
+bash-5.3$ 
+bash-5.3$ 
+bash-5.3$ kubectl -n kagent logs deploy/kagent-controller --tail=20 | grep -iE 'error|fatal' || echo "controller ok"
+{"level":"error","ts":"2026-10-09T03:27:24Z","logger":"reconciler","msg":"failed to reconcile agent","agent":{"name":"observability-agent","namespace":"kagent"},"error":"failed to compile agent kagent/observability-agent: RemoteMCPServer.kagent.dev \"kagent-grafana-mcp\" not found","stacktrace":"github.com/kagent-dev/kagent/go/core/internal/controller/reconciler.(*kagentReconciler).ReconcileKagentAgent\n\t/workspace/core/internal/controller/reconciler/reconciler.go:145\ngithub.com/kagent-dev/kagent/go/core/internal/controller.(*AgentController).Reconcile\n\t/workspace/core/internal/controller/agent_controller.go:62\nsigs.k8s.io/controller-runtime/pkg/internal/controller.(*Controller[...]).Reconcile\n\t/root/go/pkg/mod/sigs.k8s.io/controller-runtime@v0.24.1/pkg/internal/controller/controller.go:221\nsigs.k8s.io/controller-runtime/pkg/internal/controller.(*Controller[...]).reconcileHandler\n\t/root/go/pkg/mod/sigs.k8s.io/controller-runtime@v0.24.1/pkg/internal/controller/controller.go:478\nsigs.k8s.io/controller-runtime/pkg/internal/controller.(*Controller[...]).processNextWorkItem\n\t/root/go/pkg/mod/sigs.k8s.io/controller-runtime@v0.24.1/pkg/internal/controller/controller.go:437\nsigs.k8s.io/controller-runtime/pkg/internal/controller.(*Controller[...]).Start.func1.1\n\t/root/go/pkg/mod/sigs.k8s.io/controller-runtime@v0.24.1/pkg/internal/controller/controller.go:312"}
+bash-5.3$ 
+bash-5.3$ kubectl describe nodes -l eks.amazonaws.com/nodegroup=agents | grep -A3 "Allocated resources" | grep cpu
+bash-5.3$ kubectl describe nodes -l eks.amazonaws.com/nodegroup=agents | grep -A3 "Allocated resources" | grep cpu
+bash-5.3$ 

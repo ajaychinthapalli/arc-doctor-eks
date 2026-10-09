@@ -1,0 +1,64 @@
+# Karpenter 1.14.1 install via karpenter/*.sh (2026-10-08 19:55-19:59 MST)
+bash-5.3$ source karpenter/00-env.sh
+cluster=ac-ws-dev-use2 region=us-east-2 account=111122223333 k8s=1.36 ami=al2023@v20261003 karpenter=1.14.1
+bash-5.3$ bash karpenter/01-iam.sh
+cluster=ac-ws-dev-use2 region=us-east-2 account=111122223333 k8s=1.36 ami=al2023@v20261003 karpenter=1.14.1
+2026-10-08 19:55:58 [ℹ]  will create IAM Open ID Connect provider for cluster "ac-ws-dev-use2" in "us-east-2"
+2026-10-08 19:55:59 [✔]  created IAM Open ID Connect provider for cluster "ac-ws-dev-use2" in "us-east-2"
+node role ready: KarpenterNodeRole-ac-ws-dev-use2
+controller role ready: KarpenterControllerRole-ac-ws-dev-use2
+bash-5.3$
+bash-5.3$ bash karpenter/02-discovery-tags.sh
+cluster=ac-ws-dev-use2 region=us-east-2 account=111122223333 k8s=1.36 ami=al2023@v20261003 karpenter=1.14.1
+tagged subnets: subnet-0example0000000001 subnet-0example0000000002 subnet-0example0000000003
+tagged security groups: sg-0example0000000001
+bash-5.3$ bash karpenter/03-node-access.sh
+cluster=ac-ws-dev-use2 region=us-east-2 account=111122223333 k8s=1.36 ami=al2023@v20261003 karpenter=1.14.1
+authentication mode: API_AND_CONFIG_MAP
+access entry created for arn:aws:iam::111122223333:role/KarpenterNodeRole-ac-ws-dev-use2
+bash-5.3$
+bash-5.3$ bash karpenter/04-install.sh
+cluster=ac-ws-dev-use2 region=us-east-2 account=111122223333 k8s=1.36 ami=al2023@v20261003 karpenter=1.14.1
+Release "karpenter" does not exist. Installing it now.
+Pulled: public.ecr.aws/karpenter/karpenter:1.14.1
+Digest: sha256:91434e00fb102d6ee0d1bd34a4457a32fe01a8fa833fe1a2a37da4f50272079b
+NAME: karpenter
+LAST DEPLOYED: Thu Oct  8 19:57:00 2026
+NAMESPACE: kube-system
+STATUS: deployed
+REVISION: 1
+DESCRIPTION: Install complete
+TEST SUITE: None
+NAME                         READY   STATUS    RESTARTS   AGE   IP                NODE                                            NOMINATED NODE   READINESS GATES
+karpenter-5bcc48fb9b-h2nc9   1/1     Running   0          17s   10.0.0.15   ip-10-0-0-14.us-east-2.compute.internal    <none>           <none>
+karpenter-5bcc48fb9b-m22td   1/1     Running   0          17s   10.0.0.16    ip-10-0-0-11.us-east-2.compute.internal   <none>           <none>
+ec2nodeclasses.karpenter.k8s.aws                   2026-10-09T02:56:59Z
+nodeclaims.karpenter.sh                            2026-10-09T02:56:59Z
+nodeoverlays.karpenter.sh                          2026-10-09T02:56:59Z
+nodepools.karpenter.sh                             2026-10-09T02:56:59Z
+bash-5.3$
+bash-5.3$ bash karpenter/05-nodepool.sh
+cluster=ac-ws-dev-use2 region=us-east-2 account=111122223333 k8s=1.36 ami=al2023@v20261003 karpenter=1.14.1
+nodepool.karpenter.sh/linux-x64 created
+ec2nodeclass.karpenter.k8s.aws/linux-x64 created
+ValidationSucceeded=Unknown object is awaiting reconciliation
+AMIsReady=True
+CapacityReservationsReady=True
+PlacementGroupReady=True
+SubnetsReady=True
+SecurityGroupsReady=True
+InstanceProfileReady=True
+Ready=Unknown ValidationSucceeded=Unknown
+NAME        NODECLASS   NODES   READY   AGE
+linux-x64   linux-x64   0       False   7s
+bash-5.3$
+bash-5.3$ kubectl get ec2nodeclass,nodepool linux-x64
+NAME                                       READY   AGE
+ec2nodeclass.karpenter.k8s.aws/linux-x64   True    51s
+
+NAME                              NODECLASS   NODES   READY   AGE
+nodepool.karpenter.sh/linux-x64   linux-x64   0       True    52s
+bash-5.3$
+bash-5.3$ kubectl -n kube-system logs -l app.kubernetes.io/name=karpenter -c controller --tail=20 | grep -iE 'error|warn' || echo "no errors"
+no errors
+bash-5.3$

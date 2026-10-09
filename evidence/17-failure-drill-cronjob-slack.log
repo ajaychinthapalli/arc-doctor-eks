@@ -1,0 +1,131 @@
+bash-5.3$ 
+bash-5.3$ kubectl patch nodepool linux-x64 --type merge -p '{"spec":{"limits":{"cpu":"1"}}}'
+nodepool.karpenter.sh/linux-x64 patched (no change)
+bash-5.3$ 
+bash-5.3$ kubectl get pods -n arc-runners
+NAME                     READY   STATUS    RESTARTS   AGE
+linux-x64-runner-q7kcm   0/1     Pending   0          15m
+bash-5.3$ 
+bash-5.3$ 
+bash-5.3$ kubectl -n arc-systems delete configmap arc-doctor-state
+configmap "arc-doctor-state" deleted from arc-systems namespace
+bash-5.3$ 
+bash-5.3$ kubectl -n arc-systems delete job arc-watch-now --ignore-not-found
+bash-5.3$ 
+bash-5.3$ kubectl -n arc-systems create job arc-watch-now --from=cronjob/arc-watcher
+job.batch/arc-watch-now created
+bash-5.3$ 
+bash-5.3$ kubectl -n arc-systems logs -f job/arc-watch-now
+[2026-10-09T04:21:06Z] Detected 1 finding(s): ["arc-runners/linux-x64:runners"]
+[2026-10-09T04:21:06Z] Sending diagnosis request to http://kagent-controller.kagent.svc.cluster.local:8083/api/a2a/kagent/arc-doctor/
+===== ARC Doctor diagnosis =====
+Root cause is fully confirmed with triple-source evidence. Here is the complete diagnosis:
+
+---
+
+## ARC Doctor Diagnosis
+
+**Verdict:** The Karpenter `NodePool/linux-x64` has a `spec.limits.cpu` of **`1`** — a typo that is smaller than even the smallest permitted instance type (a `c/m` `large` has 2 vCPUs), so Karpenter hard-refuses every single provisioning attempt and the runner pod stays Pending forever.
+
+---
+
+**Scale set(s):**
+
+| Field | Value |
+|---|---|
+| Name / Namespace | `linux-x64` / `arc-runners` |
+| min / max runners | 0 / 10 |
+| currentRunners | — (no `status` on ARS; NodePool shows 0 nodes) |
+| Pending runners | 1 (`linux-x64-runner-q7kcm`, age 15 m) |
+| Failed runners | 0 |
+
+---
+
+**Root cause:**
+
+The live `NodePool/linux-x64` object has `spec.limits.cpu: "1"`. The NodePool's own requirements allow only `c`/`m`-family `large`, `xlarge`, or `2xlarge` instances — the smallest of which is a `c6i.large` (2 vCPUs). Karpenter's limit tracks the **total allocatable vCPUs of all nodes it would launch**, not pod requests. Launching even a single `large` node would immediately exceed the 1-vCPU ceiling, so Karpenter rejects provisioning with no NodeClaim ever being created. The runner pod then sits indefinitely in `Pending` with no node assigned.
+
+> ⚠️ The original intended limit was `"64"` — this is visible in the `kubectl.kubernetes.io/last-applied-configuration` annotation on the NodePool, which still contains `"cpu":"64"`. A subsequent `kubectl apply` or Helm render must have stomped it to `"1"`.
+
+---
+
+**Evidence:**
+
+- **`NodePool/linux-x64` live spec** — `spec.limits.cpu: "1"` with 0 nodes and 0 CPU consumed, yet Karpenter refuses every launch:
+  ```
+  NODES   READY   CPU   MEMORY
+    0      True     0      0
+  ```
+
+- **`NodePool/linux-x64` last-applied annotation** — proves the intended value was **64**, not 1:
+  ```json
+  "limits":{"cpu":"64"}
+  ```
+  (from `kubectl.kubernetes.io/last-applied-configuration`)
+
+- **Karpenter controller logs** (`karpenter-5bcc48fb9b-h2nc9`, kube-system) — firing every 10 seconds without interruption:
+  ```
+  "error":"all available instance types exceed limits for nodepool (NodePool=linux-x64)"
+  ```
+
+- **Pod event** (`linux-x64-runner-q7kcm`) — kube-scheduler confirms no node was ever a candidate:
+  ```
+  "0/5 nodes are available: 5 node(s) didn't match Pod's node affinity/selector.
+   no new claims to deallocate, preemption: 0/5 nodes are available"
+  ```
+  (All existing nodes lack the `arc-runners=true:NoSchedule` taint required by the runner pod toleration — so both paths, schedule-to-existing *and* provision-new, are blocked.)
+
+- **No `NodeClaim` objects exist** — `kubectl get nodeclaim -A` returns `No resources found`, confirming Karpenter never even initiated an EC2 launch request.
+
+---
+
+**Fix:**
+
+### Option A — `kubectl patch` (immediate, surgical)
+
+```bash
+kubectl patch nodepool linux-x64 \
+  --type=merge \
+  -p '{"spec":{"limits":{"cpu":"64"}}}'
+```
+
+Verify Karpenter starts provisioning within ~15 seconds:
+```bash
+kubectl get nodeclaim -w
+kubectl logs -n kube-system -l app.kubernetes.io/name=karpenter --tail=20 -f
+```
+
+### Option B — Helm values (permanent, prevents regression)
+
+In the Helm values file that manages the NodePool (or the ARC runner Helm release if the NodePool is bundled), ensure:
+
+```yaml
+# nodepool-values.yaml  (or equivalent)
+nodePool:
+  limits:
+    cpu: "64"      # was accidentally set to "1"
+    # memory: "256Gi"   # add a memory limit too, as a best practice
+```
+
+Then re-apply:
+```bash
+helm upgrade <release-name> <chart> -f nodepool-values.yaml -n arc-runners
+```
+
+### Post-fix checklist
+1. Confirm `NodeClaim` is created and reaches `Ready`.
+2. Confirm `linux-x64-runner-q7kcm` pod transitions from `Pending` → `Running`.
+3. Confirm the queued GitHub Actions job picks up a runner and completes.
+4. Add a CI/CD lint check or OPA/Kyverno policy that rejects a NodePool with `cpu < 2` to prevent recurrence.
+
+---
+
+**Confidence: High**
+
+All three independent sources — the live NodePool spec, the last-applied annotation showing the intended value, and continuous identical ERROR logs from Karpenter repeating every 10 s — converge on exactly the same cause. There is no ambiguity. Raising confidence further would only require watching the NodeClaim appear after the fix is applied.
+================================
+[2026-10-09T04:21:40Z] Diagnosis complete for 1 finding(s).
+bash-5.3$ kubectl patch nodepool linux-x64 --type merge -p '{"spec":{"limits":{"cpu":"64"}}}'
+nodepool.karpenter.sh/linux-x64 patched
+bash-5.3$ 
+bash-5.3$ 

@@ -1,0 +1,26 @@
+# A2A endpoint discovery (2026-10-08 ~20:53 MST)
+# kagent 0.10.3 serves A2A protocol 0.3: the card is at agent-card.json, not agent.json.
+bash-5.3$ kubectl -n kagent port-forward svc/kagent-controller 18083:8083 > /tmp/pf.log 2>&1 &
+bash-5.3$ cat /tmp/pf.log
+Forwarding from 127.0.0.1:18083 -> 8083
+Forwarding from [::1]:18083 -> 8083
+bash-5.3$ curl -s -i localhost:18083/api/a2a/kagent/arc-doctor/.well-known/agent.json | head -20
+HTTP/1.1 200 OK
+Content-Type: application/json
+Date: Fri, 09 Oct 2026 03:53:35 GMT
+Content-Length: 245
+
+{"jsonrpc":"2.0","id":null,"error":{"code":-32600,"message":"invalid request","data":[{"@type":"type.googleapis.com/google.rpc.ErrorInfo","domain":"a2a-protocol.org","metadata":{"timestamp":"2026-10-09T03:53:35Z"},"reason":"INVALID_REQUEST"}]}}
+bash-5.3$
+bash-5.3$ curl -s localhost:18083/api/a2a/kagent/arc-doctor/.well-known/agent-card.json \
+  | jq '{name, protocolVersion, url, preferredTransport, skills: [.skills[]?.id]}'
+{
+  "name": "arc_doctor",
+  "protocolVersion": "0.3",
+  "url": "http://kagent-controller.kagent.svc:8083/api/a2a/kagent/arc-doctor/",
+  "preferredTransport": "JSONRPC",
+  "skills": [
+    "diagnose-arc-scaling"
+  ]
+}
+bash-5.3$

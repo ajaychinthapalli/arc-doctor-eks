@@ -1,0 +1,40 @@
+# Smoke test: GitHub job -> ARC runner pod -> Karpenter node -> job runs (2026-10-08 ~20:22 MST)
+# Flows 1-4. Workflow: .github/workflows/arc-smoke.yml (runs-on: linux-x64)
+
+## Terminal 1
+bash-5.3$ kubectl get nodeclaims -w
+NAME              TYPE   CAPACITY   ZONE   NODE   READY   AGE
+linux-x64-gn29w                                           0s
+linux-x64-gn29w                                           0s
+linux-x64-gn29w                                   Unknown   0s
+linux-x64-gn29w   c6a.large   on-demand   us-east-2b          Unknown   3s
+linux-x64-gn29w   c6a.large   on-demand   us-east-2b          Unknown   3s
+linux-x64-gn29w   c6a.large   on-demand   us-east-2b   ip-10-0-0-17.us-east-2.compute.internal   Unknown   19s
+linux-x64-gn29w   c6a.large   on-demand   us-east-2b   ip-10-0-0-17.us-east-2.compute.internal   Unknown   20s
+linux-x64-gn29w   c6a.large   on-demand   us-east-2b   ip-10-0-0-17.us-east-2.compute.internal   Unknown   33s
+linux-x64-gn29w   c6a.large   on-demand   us-east-2b   ip-10-0-0-17.us-east-2.compute.internal   Unknown   33s
+linux-x64-gn29w   c6a.large   on-demand   us-east-2b   ip-10-0-0-17.us-east-2.compute.internal   Unknown   34s
+linux-x64-gn29w   c6a.large   on-demand   us-east-2b   ip-10-0-0-17.us-east-2.compute.internal   True      38s
+linux-x64-gn29w   c6a.large   on-demand   us-east-2b   ip-10-0-0-17.us-east-2.compute.internal   True      58s
+
+## Terminal 2
+bash-5.3$ kubectl get pods -n arc-runners -o wide -w
+NAME                     READY   STATUS    RESTARTS   AGE   IP       NODE     NOMINATED NODE   READINESS GATES
+linux-x64-runner-24pbp   0/1     Pending   0          0s    <none>   <none>   <none>           <none>
+linux-x64-runner-24pbp   0/1     Pending   0          0s    <none>   <none>   <none>           <none>
+linux-x64-runner-24pbp   0/1     Pending   0          20s   <none>   <none>   <none>           <none>
+linux-x64-runner-24pbp   0/1     Pending   0          34s   <none>   ip-10-0-0-17.us-east-2.compute.internal   <none>           <none>
+linux-x64-runner-24pbp   0/1     ContainerCreating   0          34s   <none>   ip-10-0-0-17.us-east-2.compute.internal   <none>           <none>
+linux-x64-runner-24pbp   0/1     ContainerCreating   0          36s   <none>   ip-10-0-0-17.us-east-2.compute.internal   <none>           <none>
+linux-x64-runner-24pbp   1/1     Running             0          52s   10.0.0.18   ip-10-0-0-17.us-east-2.compute.internal   <none>           <none>
+linux-x64-runner-24pbp   0/1     Completed           0          59s   10.0.0.18   ip-10-0-0-17.us-east-2.compute.internal   <none>           <none>
+linux-x64-runner-24pbp   0/1     Terminating         0          59s   10.0.0.18   ip-10-0-0-17.us-east-2.compute.internal   <none>           <none>
+linux-x64-runner-24pbp   0/1     Terminating         0          59s   10.0.0.18   ip-10-0-0-17.us-east-2.compute.internal   <none>           <none>
+
+## Timeline
+# 0s   runner pod Pending, NodeClaim created
+# 3s   Karpenter picked c6a.large on-demand, us-east-2b
+# 34s  pod bound to the new node
+# 38s  NodeClaim Ready
+# 52s  runner Running
+# 59s  job complete, runner pod removed

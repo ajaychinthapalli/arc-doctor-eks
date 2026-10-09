@@ -1,0 +1,191 @@
+bash-5.3$ curl https://raw.githubusercontent.com/kagent-dev/kagent/refs/heads/main/scripts/get-kagent | bash
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+100  9613  100  9613    0     0  56414      0 --:--:-- --:--:-- --:--:-- 56547
+Downloading https://github.com/kagent-dev/kagent/releases/download/v1.0.0-alpha9/kagent-darwin-arm64
+Verifying checksum... Done.
+Preparing to install kagent into /usr/local/bin
+Password:
+kagent installed into /usr/local/bin/kagent
+bash-5.3$ 
+bash-5.3$ 
+bash-5.3$ helm install kagent-crds oci://ghcr.io/kagent-dev/kagent/helm/kagent-crds \
+  --namespace kagent --create-namespace
+Pulled: ghcr.io/kagent-dev/kagent/helm/kagent-crds:0.10.3
+Digest: sha256:76582530f0b58b48575d19936e19d790ca2cea8e0421775be65bd4c99b2d8da0
+NAME: kagent-crds
+LAST DEPLOYED: Thu Oct  8 20:25:39 2026
+NAMESPACE: kagent
+STATUS: deployed
+REVISION: 1
+DESCRIPTION: Install complete
+TEST SUITE: None
+NOTES:
+
+bash-5.3$ kubectl get ns
+NAME                STATUS   AGE
+amazon-cloudwatch   Active   18d
+arc-runners         Active   18m
+arc-systems         Active   19m
+default             Active   18d
+kagent              Active   12s
+kube-node-lease     Active   18d
+kube-public         Active   18d
+kube-system         Active   18d
+radar               Active   8d
+bash-5.3$ 
+bash-5.3$ kubectl get po kagent
+Error from server (NotFound): pods "kagent" not found
+bash-5.3$ 
+bash-5.3$ kubectl get po -n kagent
+No resources found in kagent namespace.
+bash-5.3$ 
+bash-5.3$ 
+bash-5.3$ helm install kagent oci://ghcr.io/kagent-dev/kagent/helm/kagent \
+  --namespace kagent \
+  --set providers.default=ollama \
+  --set grafana-mcp.enabled=false
+Pulled: ghcr.io/kagent-dev/kagent/helm/kagent:0.10.3
+Digest: sha256:2f355400c760116e830cd7e86e7046477d480fb7dc309131832c51d65dfe9063
+NAME: kagent
+LAST DEPLOYED: Thu Oct  8 20:26:41 2026
+NAMESPACE: kagent
+STATUS: deployed
+REVISION: 1
+DESCRIPTION: Install complete
+TEST SUITE: None
+NOTES:
+################################################################################
+#                            KAGENT DEPLOYED                                  #
+################################################################################
+
+Kagent has been successfully deployed to namespace: kagent
+
+ACCESSING THE UI:
+  1. Forward the UI service port:
+     kubectl -n kagent port-forward service/kagent-ui 8080:8080
+
+  2. Open your browser and visit:
+     http://localhost:8080
+
+ACCESSING THE CONTROLLER API:
+  kubectl -n kagent port-forward service/kagent-controller 8083:8083
+
+  API endpoint: http://localhost:8083/api
+
+DEPLOYED COMPONENTS:
+  - Controller: kagent-controller (manages Kubernetes resources)
+  - Engine: kagent-engine (AI agent runtime)
+  - UI: kagent-ui (web interface)
+  - KMCP Controller: kagent-kmcp-manager-controller (manages MCPServer resources)
+
+ENABLED TOOLS:
+  - Tool Server: Kagent's Built-in tools
+
+ENABLED AGENTS:
+  - k8s-agent
+  - kgateway-agent
+  - istio-agent
+  - promql-agent
+  - observability-agent
+  - argo-rollouts-agent
+  - helm-agent
+  - cilium-policy-agent
+  - cilium-manager-agent
+  - cilium-debug-agent
+
+USEFUL COMMANDS:
+  # View all kagent resources
+  kubectl -n kagent get agents,modelconfigs,toolservers,memories
+
+  # Get agents
+  kubectl -n kagent get agents
+
+  # View logs
+  kubectl -n kagent logs -l app.kubernetes.io/name=kagent -f
+
+TROUBLESHOOTING:
+  - Check pod status: kubectl -n kagent get pods
+  - View events: kubectl -n kagent get events --sort-by='.lastTimestamp'
+  - Controller logs: kubectl -n kagent logs -l app.kubernetes.io/component=controller -f
+DOCUMENTATION:
+  Visit https://kagent.dev for comprehensive documentation and examples.
+################################################################################
+# WARNING: BUNDLED DATABASE IN USE                                             #
+################################################################################
+  The bundled PostgreSQL instance is enabled. It is intended for development and
+  evaluation only, not suitable for production use. Data may be lost if the
+  pod is restarted or rescheduled.
+
+  To use an external database, set:
+    database.postgres.url=<your-connection-string> or database.postgres.urlFile=<path>
+################################################################################
+bash-5.3$ 
+bash-5.3$ kubectl get po -n kagent
+NAME                                             READY   STATUS              RESTARTS     AGE
+kagent-controller-c756c574c-fkq7j                0/1     Error               1 (3s ago)   7s
+kagent-kmcp-controller-manager-76bb479b6-kc9lh   0/1     Running             0            7s
+kagent-postgresql-76d7c858f4-mfj67               0/1     ContainerCreating   0            7s
+kagent-tools-b558b665b-lcwd6                     0/1     Running             0            7s
+kagent-ui-86df779686-z5pwb                       0/1     ContainerCreating   0            7s
+bash-5.3$ kubectl get po -n kagent -w
+NAME                                             READY   STATUS    RESTARTS      AGE
+kagent-controller-c756c574c-fkq7j                0/1     Error     1 (10s ago)   14s
+kagent-kmcp-controller-manager-76bb479b6-kc9lh   1/1     Running   0             14s
+kagent-postgresql-76d7c858f4-mfj67               0/1     Running   0             14s
+kagent-tools-b558b665b-lcwd6                     0/1     Running   0             14s
+kagent-ui-86df779686-z5pwb                       1/1     Running   0             14s
+kagent-controller-c756c574c-fkq7j                0/1     CrashLoopBackOff   1 (11s ago)   16s
+kagent-controller-c756c574c-fkq7j                0/1     Running            2 (11s ago)   16s
+kagent-controller-c756c574c-fkq7j                0/1     Error              2 (11s ago)   16s
+kagent-tools-b558b665b-lcwd6                     1/1     Running            0             17s
+kagent-postgresql-76d7c858f4-mfj67               0/1     Running            0             18s
+kagent-postgresql-76d7c858f4-mfj67               1/1     Running            0             18s
+^Z
+[1]+  Stopped                    kubectl get po -n kagent -w
+bash-5.3$ 
+bash-5.3$ 
+bash-5.3$ kubectl get po -n kagent
+NAME                                             READY   STATUS    RESTARTS      AGE
+kagent-controller-c756c574c-fkq7j                0/1     Running   3 (20s ago)   36s
+kagent-kmcp-controller-manager-76bb479b6-kc9lh   1/1     Running   0             36s
+kagent-postgresql-76d7c858f4-mfj67               1/1     Running   0             36s
+kagent-tools-b558b665b-lcwd6                     1/1     Running   0             36s
+kagent-ui-86df779686-z5pwb                       1/1     Running   0             36s
+bash-5.3$ 
+bash-5.3$ 
+bash-5.3$ 
+bash-5.3$ kubectl get po -n kagent
+NAME                                              READY   STATUS              RESTARTS      AGE
+argo-rollouts-conversion-agent-6bb49d776f-n2ggg   0/1     ContainerCreating   0             4s
+argo-rollouts-conversion-agent-7b8f697b4d-lp8kj   0/1     ContainerCreating   0             4s
+cilium-debug-agent-8586b8c89b-7d8cs               0/1     ContainerCreating   0             3s
+cilium-manager-agent-5bfb4f8687-5cqz5             0/1     ContainerCreating   0             4s
+cilium-policy-agent-b4f558dc8-d6kx2               0/1     Running             0             3s
+helm-agent-6b8996d4b7-d4cpf                       1/1     Running             0             3s
+istio-agent-5b8f89849b-j9pdq                      0/1     ContainerCreating   0             4s
+k8s-agent-594f4456b5-dxdxr                        0/1     ContainerCreating   0             3s
+kagent-controller-c756c574c-fkq7j                 0/1     Running             3 (26s ago)   42s
+kagent-kmcp-controller-manager-76bb479b6-kc9lh    1/1     Running             0             42s
+kagent-postgresql-76d7c858f4-mfj67                1/1     Running             0             42s
+kagent-tools-b558b665b-lcwd6                      1/1     Running             0             42s
+kagent-ui-86df779686-z5pwb                        1/1     Running             0             42s
+kgateway-agent-547ff8b685-kfbdh                   0/1     Running             0             3s
+promql-agent-77b88dfbd8-7snhp                     0/1     ContainerCreating   0             3s
+bash-5.3$ kubectl get po -n kagent
+NAME                                              READY   STATUS    RESTARTS      AGE
+argo-rollouts-conversion-agent-7b8f697b4d-lp8kj   1/1     Running   0             8s
+cilium-debug-agent-8586b8c89b-7d8cs               1/1     Running   0             7s
+cilium-manager-agent-5bfb4f8687-5cqz5             1/1     Running   0             8s
+cilium-policy-agent-b4f558dc8-d6kx2               1/1     Running   0             7s
+helm-agent-6b8996d4b7-d4cpf                       1/1     Running   0             7s
+istio-agent-5b8f89849b-j9pdq                      1/1     Running   0             8s
+k8s-agent-594f4456b5-dxdxr                        1/1     Running   0             7s
+kagent-controller-c756c574c-fkq7j                 0/1     Running   3 (30s ago)   46s
+kagent-kmcp-controller-manager-76bb479b6-kc9lh    1/1     Running   0             46s
+kagent-postgresql-76d7c858f4-mfj67                1/1     Running   0             46s
+kagent-tools-b558b665b-lcwd6                      1/1     Running   0             46s
+kagent-ui-86df779686-z5pwb                        1/1     Running   0             46s
+kgateway-agent-547ff8b685-kfbdh                   1/1     Running   0             7s
+promql-agent-77b88dfbd8-7snhp                     1/1     Running   0             7s
+bash-5.3$ 

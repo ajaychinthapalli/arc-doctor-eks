@@ -1,0 +1,109 @@
+bash-5.3$ 
+bash-5.3$ aws iam create-policy --policy-name arc-doctor-bedrock \
+  --policy-document file://iam/bedrock-invoke-policy.json
+{
+    "Policy": {
+        "PolicyName": "arc-doctor-bedrock",
+        "PolicyId": "ANPAYLDZBSVR3SNRHRPUM",
+        "Arn": "arn:aws:iam::111122223333:policy/arc-doctor-bedrock",
+        "Path": "/",
+        "DefaultVersionId": "v1",
+        "AttachmentCount": 0,
+        "PermissionsBoundaryUsageCount": 0,
+        "IsAttachable": true,
+        "CreateDate": "2026-10-09T03:33:09+00:00",
+        "UpdateDate": "2026-10-09T03:33:09+00:00"
+    }
+}
+bash-5.3$ 
+bash-5.3$ 
+bash-5.3$ 
+bash-5.3$ eksctl create iamserviceaccount --cluster ac-ws-dev-use2 --region us-east-2 \
+  --namespace kagent --name arc-doctor \
+  --role-name arc-doctor-bedrock --role-only \
+  --attach-policy-arn arn:aws:iam::111122223333:policy/arc-doctor-bedrock \
+  --approve
+2026-10-08 20:33:58 [ℹ]  1 iamserviceaccount (kagent/arc-doctor) was included (based on the include/exclude rules)
+2026-10-08 20:33:58 [!]  serviceaccounts in Kubernetes will not be created or modified, since the option --role-only is used
+2026-10-08 20:33:58 [ℹ]  1 task: { create IAM role for serviceaccount "kagent/arc-doctor" }
+2026-10-08 20:33:58 [ℹ]  building iamserviceaccount stack "eksctl-ac-ws-dev-use2-addon-iamserviceaccount-kagent-arc-doctor"
+2026-10-08 20:33:58 [ℹ]  deploying stack "eksctl-ac-ws-dev-use2-addon-iamserviceaccount-kagent-arc-doctor"
+2026-10-08 20:33:58 [ℹ]  waiting for CloudFormation stack "eksctl-ac-ws-dev-use2-addon-iamserviceaccount-kagent-arc-doctor"
+2026-10-08 20:34:28 [ℹ]  waiting for CloudFormation stack "eksctl-ac-ws-dev-use2-addon-iamserviceaccount-kagent-arc-doctor"
+bash-5.3$ 
+bash-5.3$ 
+bash-5.3$ kubectl -n kagent get deploy -o custom-columns=NAME:.metadata.name,SA:.spec.template.spec.serviceAccountName
+NAME                             SA
+kagent-controller                kagent-controller
+kagent-kmcp-controller-manager   kagent-kmcp-controller-manager
+kagent-postgresql                kagent-postgresql
+kagent-tools                     kagent-tools
+kagent-ui                        kagent-ui
+bash-5.3$ 
+bash-5.3$ kubectl -n kagent get remotemcpserver
+NAME                 PROTOCOL          URL                                   ACCEPTED
+kagent-tool-server   STREAMABLE_HTTP   http://kagent-tools.kagent:8084/mcp   True
+bash-5.3$ 
+bash-5.3$ kubectl -n kagent get remotemcpserver kagent-tool-server \
+  -o jsonpath='{range .status.discoveredTools[*]}{.name}{"\n"}{end}' | sort | head -60
+argo_check_plugin_logs
+argo_pause_rollout
+argo_promote_rollout
+argo_rollouts_list
+argo_set_rollout_image
+argo_verify_argo_rollouts_controller_install
+argo_verify_gateway_plugin
+argo_verify_kubectl_plugin_install
+cilium_connect_to_remote_cluster
+cilium_delete_key_from_kv_store
+cilium_delete_pcap_recorder
+cilium_delete_policy_rules
+cilium_delete_service
+cilium_delete_xdp_cidr_filters
+cilium_disconnect_endpoint
+cilium_disconnect_remote_cluster
+cilium_display_encryption_state
+cilium_display_policy_node_information
+cilium_display_selectors
+cilium_flush_ipsec_state
+cilium_fqdn_cache
+cilium_get_bpf_map
+cilium_get_daemon_status
+cilium_get_endpoint_details
+cilium_get_endpoint_health
+cilium_get_endpoint_logs
+cilium_get_endpoints_list
+cilium_get_identity_details
+cilium_get_kv_store_key
+cilium_get_pcap_recorder
+cilium_get_service_information
+cilium_install_cilium
+cilium_list_bgp_peers
+cilium_list_bgp_routes
+cilium_list_bpf_map_events
+cilium_list_bpf_maps
+cilium_list_cluster_nodes
+cilium_list_envoy_config
+cilium_list_identities
+cilium_list_ip_addresses
+cilium_list_local_redirect_policies
+cilium_list_metrics
+cilium_list_node_ids
+cilium_list_pcap_recorders
+cilium_list_services
+cilium_list_xdp_cidr_filters
+cilium_manage_endpoint_config
+cilium_manage_endpoint_labels
+cilium_request_debugging_information
+cilium_set_kv_store_key
+cilium_show_cluster_mesh_status
+cilium_show_configuration_options
+cilium_show_dns_names
+cilium_show_features_status
+cilium_show_ip_cache_information
+cilium_show_load_information
+cilium_status_and_version
+cilium_toggle_cluster_mesh
+cilium_toggle_configuration_option
+cilium_toggle_hubble
+bash-5.3$ 

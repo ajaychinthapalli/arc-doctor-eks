@@ -1,0 +1,49 @@
+# ARC Doctor deploy with kustomize (2026-10-08 ~20:44 MST)
+bash-5.3$ kubectl explain agent.spec.declarative.deployment.serviceAccountConfig 2>&1 | head -5
+GROUP:      kagent.dev
+KIND:       Agent
+VERSION:    v1alpha2
+
+FIELD: serviceAccountConfig <Object>
+bash-5.3$ kubectl apply -k . --dry-run=server
+error: must build at directory: not a valid directory: abs path error on '.' : open ..: operation not permitted
+# (macOS privacy block on ~/Downloads; fixed by copying the bundle to ~/arc-doctor)
+bash-5.3$ kubectl apply -k . --dry-run=server
+serviceaccount/arc-watcher created (server dry run)
+role.rbac.authorization.k8s.io/arc-watcher-state created (server dry run)
+clusterrole.rbac.authorization.k8s.io/arc-doctor-readonly created (server dry run)
+clusterrole.rbac.authorization.k8s.io/arc-watcher created (server dry run)
+rolebinding.rbac.authorization.k8s.io/arc-watcher-state created (server dry run)
+clusterrolebinding.rbac.authorization.k8s.io/arc-doctor-readonly created (server dry run)
+clusterrolebinding.rbac.authorization.k8s.io/arc-watcher created (server dry run)
+configmap/arc-watcher-script-58md8ct782 created (server dry run)
+cronjob.batch/arc-watcher created (server dry run)
+agent.kagent.dev/arc-doctor created (server dry run)
+modelconfig.kagent.dev/arc-doctor-bedrock created (server dry run)
+bash-5.3$ kubectl apply -k .
+serviceaccount/arc-watcher created
+role.rbac.authorization.k8s.io/arc-watcher-state created
+clusterrole.rbac.authorization.k8s.io/arc-doctor-readonly created
+clusterrole.rbac.authorization.k8s.io/arc-watcher created
+rolebinding.rbac.authorization.k8s.io/arc-watcher-state created
+clusterrolebinding.rbac.authorization.k8s.io/arc-doctor-readonly created
+clusterrolebinding.rbac.authorization.k8s.io/arc-watcher created
+configmap/arc-watcher-script-58md8ct782 created
+cronjob.batch/arc-watcher created
+agent.kagent.dev/arc-doctor created
+modelconfig.kagent.dev/arc-doctor-bedrock created
+bash-5.3$
+bash-5.3$ kubectl -n kagent get modelconfig,agent
+NAME                                          PROVIDER   MODEL
+modelconfig.kagent.dev/arc-doctor-bedrock     Bedrock    us.anthropic.claude-sonnet-4-6
+modelconfig.kagent.dev/default-model-config   Ollama     llama3.2
+
+NAME                          TYPE          RUNTIME   READY   ACCEPTED
+agent.kagent.dev/arc-doctor   Declarative   go        True    True
+bash-5.3$ kubectl -n kagent get pods | grep arc-doctor
+arc-doctor-74669c7c6b-qdxlk                      1/1     Running   0             69s
+bash-5.3$ kubectl -n kagent get deploy arc-doctor -o jsonpath='{..serviceAccountName}{"\n"}'
+arc-doctor
+bash-5.3$ kubectl -n kagent get sa arc-doctor -o jsonpath='{.metadata.annotations.eks\.amazonaws\.com/role-arn}{"\n"}'
+arn:aws:iam::111122223333:role/arc-doctor-bedrock
+bash-5.3$
