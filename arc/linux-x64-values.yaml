@@ -1,0 +1,30 @@
+# Runner scale set for ac-ws-dev-use2. Runners run on Karpenter's "linux-x64" NodePool.
+# helm install linux-x64 -n arc-runners -f arc/linux-x64-values.yaml \
+#   oci://ghcr.io/actions/actions-runner-controller-charts/gha-runner-scale-set
+githubConfigUrl: https://github.com/<owner>/<repo> # <-- org (https://github.com/<org>) or repo; personal accounts must use a repo URL
+githubConfigSecret: arc-github-app
+minRunners: 0
+maxRunners: 10 # Karpenter adds nodes up to the NodePool's limits.cpu (64)
+template:
+  metadata:
+    annotations:
+      # Never let Karpenter move a runner mid-job.
+      karpenter.sh/do-not-disrupt: "true"
+  spec:
+    nodeSelector:
+      karpenter.sh/nodepool: linux-x64
+    tolerations:
+      - key: arc-runners
+        operator: Equal
+        value: "true"
+        effect: NoSchedule
+    containers:
+      - name: runner
+        image: ghcr.io/actions/actions-runner:latest
+        command: ["/home/runner/run.sh"]
+        resources:
+          requests:
+            cpu: "1"
+            memory: 2Gi
+          limits:
+            memory: 4Gi

@@ -1,0 +1,15 @@
+# Default owners for the repository
+* @ajaychinthapalli
+
+# Workflow and automation changes
+.github/workflows/ @ajaychinthapalli
+
+# Deployment and cluster configuration
+manifests/ @ajaychinthapalli
+karpenter/ @ajaychinthapalli
+arc/ @ajaychinthapalli
+
+# Documentation and evidence
+README.md @ajaychinthapalli
+docs/ @ajaychinthapalli
+evidence/ @ajaychinthapalli

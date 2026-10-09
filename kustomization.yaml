@@ -1,0 +1,15 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - manifests/01-modelconfig.yaml
+  - manifests/02-agent.yaml
+  - manifests/03-rbac-tool-server.yaml
+  - manifests/04-watcher.yaml
+configMapGenerator:
+  - name: arc-watcher-script
+    namespace: arc-systems
+    files:
+      - watcher/arc-watch.sh
+    options:
+      labels:
+        app.kubernetes.io/part-of: arc-doctor

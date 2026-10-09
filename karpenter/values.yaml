@@ -1,0 +1,39 @@
+# Karpenter Helm values for ac-ws-dev-use2.
+# settings.clusterName and the IRSA role annotation are passed by 04-install.sh.
+replicas: 2
+
+# Run the controller on the existing "agents" managed node group, never on nodes it launches,
+# one replica per node.
+affinity:
+  nodeAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+      nodeSelectorTerms:
+        - matchExpressions:
+            - key: karpenter.sh/nodepool
+              operator: DoesNotExist
+            - key: eks.amazonaws.com/nodegroup
+              operator: In
+              values: ["agents"]
+  podAntiAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+      - topologyKey: kubernetes.io/hostname
+
+# Your two t3.large nodes may share a zone; don't block scheduling on zone spread.
+topologySpreadConstraints:
+  - maxSkew: 1
+    topologyKey: topology.kubernetes.io/zone
+    whenUnsatisfiable: ScheduleAnyway
+
+# Smaller than the guide's 1 vCPU / 1 GiB so ARC, kagent and Karpenter all fit on two t3.large.
+controller:
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      memory: 1Gi
+
+settings:
+  # No SQS interruption queue: the runner NodePool is on-demand only.
+  # Add a queue (and spot) later; see README.
+  interruptionQueue: ""

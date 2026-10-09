@@ -1,0 +1,53 @@
+# On-demand diagnosis from GitHub. Runs on an ARC runner INSIDE the EKS cluster,
+# so it reaches the kagent controller on the cluster network (no public endpoint).
+#
+# Tip: target a scale set other than the one you're debugging (e.g. a tiny
+# "ops" set with minRunners: 1) so the diagnosis can run while the broken set is stuck.
+name: ARC Doctor
+
+on:
+  workflow_dispatch:
+    inputs:
+      scale_set:
+        description: "Scale set name (runnerScaleSetName)"
+        required: true
+      namespace:
+        description: "Runner namespace"
+        required: true
+        default: arc-runners
+      question:
+        description: "Extra context (optional)"
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    runs-on: arc-ops # <-- an in-cluster ARC scale set that stays warm
+    timeout-minutes: 15
+    env:
+      A2A_URL: http://kagent-controller.kagent.svc.cluster.local:8083/api/a2a/kagent/arc-doctor/
+    steps:
+      - name: Ask ARC Doctor
+        env:
+          SCALE_SET: ${{ inputs.scale_set }}
+          RUNNER_NS: ${{ inputs.namespace }}
+          EXTRA: ${{ inputs.question }}
+        run: |
+          set -euo pipefail
+          text="Jobs are queued for ARC scale set \"$SCALE_SET\" in namespace \"$RUNNER_NS\" but runners are not starting. $EXTRA Diagnose the root cause and give the fix."
+          id=$(cat /proc/sys/kernel/random/uuid)
+          payload=$(jq -n --arg t "$text" --arg id "$id" '{jsonrpc:"2.0",id:$id,method:"message/send",
+            params:{message:{role:"user",messageId:$id,kind:"message",parts:[{kind:"text",text:$t}]}}}')
+          resp=$(curl -sS --fail-with-body --max-time 600 -H 'Content-Type: application/json' -d "$payload" "$A2A_URL")
+          answer=$(jq -r '
+            def texts: [ .[]?.parts[]? | select(.kind=="text") | .text ];
+            ((.result.artifacts | texts) + ([.result.status.message] | texts)) | join("\n")' <<<"$resp")
+          {
+            echo "## ARC Doctor: \`$SCALE_SET\` in \`$RUNNER_NS\`"
+            echo
+            echo "${answer:-No answer returned. Raw response is in the step log.}"
+          } >> "$GITHUB_STEP_SUMMARY"
+          [ -n "$answer" ] || echo "$resp"
