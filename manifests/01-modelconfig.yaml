@@ -1,0 +1,13 @@
+# Model used by the ARC doctor agent.
+# Native Bedrock provider; credentials come from the agent pod's IAM role
+# (IRSA annotation in 02-agent.yaml). Change model/region to what your account has enabled.
+apiVersion: kagent.dev/v1alpha2
+kind: ModelConfig
+metadata:
+  name: arc-doctor-bedrock
+  namespace: kagent
+spec:
+  provider: Bedrock
+  model: us.anthropic.claude-sonnet-4-6 # US cross-region inference profile
+  bedrock:
+    region: us-east-2 # ac-ws-dev-use2 region

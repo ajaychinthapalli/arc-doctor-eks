@@ -1,0 +1,78 @@
+# NodePool + EC2NodeClass for the linux-x64 ARC runner scale set.
+# Rendered by 05-nodepool.sh with sed (CLUSTER_NAME, ALIAS_VERSION).
+#
+# - Tainted, so only ARC runner pods (which tolerate it) land here.
+# - On-demand only (no interruption queue needed).
+# - Consolidates only EMPTY nodes, so a running job is never moved.
+# - limits.cpu caps total runner capacity; ARC Doctor reports when this is hit.
+apiVersion: karpenter.sh/v1
+kind: NodePool
+metadata:
+  name: linux-x64
+spec:
+  template:
+    metadata:
+      labels:
+        workload: arc-runners
+    spec:
+      nodeClassRef:
+        group: karpenter.k8s.aws
+        kind: EC2NodeClass
+        name: linux-x64
+      taints:
+        - key: arc-runners
+          value: "true"
+          effect: NoSchedule
+      requirements:
+        - key: kubernetes.io/arch
+          operator: In
+          values: ["amd64"]
+        - key: kubernetes.io/os
+          operator: In
+          values: ["linux"]
+        - key: karpenter.sh/capacity-type
+          operator: In
+          values: ["on-demand"]
+        - key: karpenter.k8s.aws/instance-category
+          operator: In
+          values: ["c", "m"]
+        - key: karpenter.k8s.aws/instance-generation
+          operator: Gt
+          values: ["5"]
+        - key: karpenter.k8s.aws/instance-size
+          operator: In
+          values: ["large", "xlarge", "2xlarge"]
+      expireAfter: 168h
+  limits:
+    cpu: "64"
+  disruption:
+    consolidationPolicy: WhenEmpty
+    consolidateAfter: 5m
+---
+apiVersion: karpenter.k8s.aws/v1
+kind: EC2NodeClass
+metadata:
+  name: linux-x64
+spec:
+  role: "KarpenterNodeRole-${CLUSTER_NAME}"
+  amiSelectorTerms:
+    - alias: "al2023@${ALIAS_VERSION}"
+  subnetSelectorTerms:
+    - tags:
+        karpenter.sh/discovery: "${CLUSTER_NAME}"
+  securityGroupSelectorTerms:
+    - tags:
+        karpenter.sh/discovery: "${CLUSTER_NAME}"
+  blockDeviceMappings:
+    - deviceName: /dev/xvda
+      ebs:
+        volumeSize: 50Gi
+        volumeType: gp3
+        encrypted: true
+        deleteOnTermination: true
+  metadataOptions:
+    httpTokens: required
+    httpPutResponseHopLimit: 1
+  tags:
+    Name: "${CLUSTER_NAME}-arc-runner"
+    workload: arc-runners

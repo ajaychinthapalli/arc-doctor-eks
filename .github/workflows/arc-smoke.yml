@@ -1,0 +1,11 @@
+# Copy into .github/workflows/ of the repo your scale set serves.
+name: ARC smoke test
+on: workflow_dispatch
+jobs:
+  hello:
+    runs-on: linux-x64
+    steps:
+      - run: |
+          echo "Running on ARC"
+          echo "Node: $(cat /etc/hostname)"
+          nproc; free -h

@@ -1,0 +1,72 @@
+# kagent tools execute inside the kagent tool server pod, so THAT ServiceAccount
+# needs read access to ARC and Karpenter objects. Default kagent installs often
+# grant broad access already; this ClusterRole makes the required reads explicit
+# and works if you've locked the tool server down.
+#
+# Find the tool server's ServiceAccount:
+#   kubectl -n kagent get deploy -l app.kubernetes.io/name=kagent-tools -o jsonpath='{..serviceAccountName}'
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: arc-doctor-readonly
+  labels:
+    app.kubernetes.io/part-of: arc-doctor
+rules:
+  # ARC (gha-runner-scale-set)
+  - apiGroups: ["actions.github.com"]
+    resources:
+      - autoscalingrunnersets
+      - autoscalinglisteners
+      - ephemeralrunnersets
+      - ephemeralrunners
+    verbs: ["get", "list", "watch"]
+  # Karpenter v1
+  - apiGroups: ["karpenter.sh"]
+    resources: ["nodepools", "nodeclaims"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["karpenter.k8s.aws"]
+    resources: ["ec2nodeclasses"]
+    verbs: ["get", "list", "watch"]
+  # Core objects needed to trace scheduling
+  - apiGroups: [""]
+    resources:
+      - pods
+      - pods/log
+      - events
+      - nodes
+      - namespaces
+      - resourcequotas
+      - limitranges
+      - persistentvolumeclaims
+      - serviceaccounts
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["events.k8s.io"]
+    resources: ["events"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["apps"]
+    resources: ["deployments", "replicasets"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["storage.k8s.io"]
+    resources: ["storageclasses"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["admissionregistration.k8s.io"]
+    resources:
+      ["validatingwebhookconfigurations", "mutatingwebhookconfigurations"]
+    verbs: ["get", "list"]
+  # Secrets deliberately NOT granted: the agent infers bad GitHub credentials
+  # from listener logs instead of reading the secret.
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: arc-doctor-readonly
+  labels:
+    app.kubernetes.io/part-of: arc-doctor
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: arc-doctor-readonly
+subjects:
+  - kind: ServiceAccount
+    name: kagent-tools # <-- the tool server's ServiceAccount
+    namespace: kagent
